@@ -41,22 +41,36 @@ class DefaultMealsRepository(
     private val inFlight = mutableMapOf<String, Deferred<Recipe>>()
     private val requestLock = Mutex()
     private val persistenceLock = Mutex()
+    private val initLock = Mutex()
+    private var initialised = false
     private val requestScope = CoroutineScope(SupervisorJob() + io)
 
     override suspend fun initialise() {
-        val saved = store.readFavourites()
-        _favourites.value = saved
-        details.putAll(saved)
-        store.readCache()?.details?.let(details::putAll)
+        initLock.withLock {
+            if (initialised) return
+            val saved = store.readFavourites()
+            _favourites.value = saved
+            details.putAll(saved)
+            store.readCache()?.details?.let(details::putAll)
+            initialised = true
+        }
     }
 
     override suspend fun loadCollection(forceNetwork: Boolean): MealCollection = withContext(io) {
         if (!forceNetwork) store.readCache()?.takeIf { it.meals.isNotEmpty() }?.let { cached ->
             details.putAll(cached.details)
             // A cache is shown immediately, but each explicit retry always demonstrates the real GET.
-            return@withContext MealCollection(cached.meals, cached.details, DataSource.CACHE, "Showing saved recipes. Tap retry to refresh.")
+            val source = if (cached.fromReviewFixture) DataSource.REVIEW_FIXTURE else DataSource.CACHE
+            val notice = if (cached.fromReviewFixture)
+                "Showing checked-in review data. Tap retry to refresh from the public service."
+            else "Showing saved recipes. Tap retry to refresh."
+            return@withContext MealCollection(cached.meals, cached.details, source, notice)
         }
-        runCatching { loadLive() }.getOrElse { error ->
+        try {
+            loadLive()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
             val cached = store.readCache()?.takeIf { it.meals.isNotEmpty() }
             if (cached != null) {
                 details.putAll(cached.details)
@@ -65,6 +79,13 @@ class DefaultMealsRepository(
                 val fixture = readFixture()
                 if (fixture.meals.isEmpty()) throw error
                 details.putAll(fixture.details)
+                try {
+                    store.writeCache(StoredCollection(fixture.meals, fixture.details, System.currentTimeMillis(), fromReviewFixture = true))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    // The fixture remains usable in-memory even when the device is out of storage.
+                }
                 MealCollection(fixture.meals, fixture.details, DataSource.REVIEW_FIXTURE,
                     "The public service is unavailable. Showing checked-in review data; retry when online.")
             }
@@ -73,14 +94,18 @@ class DefaultMealsRepository(
 
     private suspend fun loadLive(): MealCollection = coroutineScope {
         // The provider historically used "Indian"; its current V1 response uses "India".
-        val legacy = service.byArea("Indian").checkedBody().meals.orEmpty()
-        val current = service.byArea("India").checkedBody().meals.orEmpty()
+        val legacyRequest = async { service.byArea("Indian").checkedBody().meals.orEmpty() }
+        val currentRequest = async { service.byArea("India").checkedBody().meals.orEmpty() }
+        val legacy = legacyRequest.await()
+        val current = currentRequest.await()
         // During the provider's label migration both endpoints may return different subsets.
         val baseDtos = if (current.size >= legacy.size) current else legacy
         val base = baseDtos.mapNotNull(MealDto::summary).distinctBy { it.id }
         if (base.isEmpty()) throw ServiceException("No Indian recipes were returned. Your saved review data is still available.")
-        val gate = Semaphore(3)
-        val enriched = base.map { summary -> async { gate.withPermit { runCatching { recipe(summary.id) }.getOrNull() } } }
+        val gate = Semaphore(4)
+        val enriched = base.map { summary -> async { gate.withPermit {
+            try { recipe(summary.id) } catch (error: CancellationException) { throw error } catch (_: Throwable) { null }
+        } } }
             .awaitAll().filterNotNull().filter { it.isIndianRecipe() }
         // The IDs returned by the area endpoint are authoritative. Details only enrich them.
         val allowed = base.map { it.id }.toSet()

@@ -10,7 +10,12 @@ import kotlinx.serialization.encodeToString
 import java.io.File
 
 @Serializable
-data class StoredCollection(val meals: List<MealSummary> = emptyList(), val details: Map<String, Recipe> = emptyMap(), val savedAt: Long = 0)
+data class StoredCollection(
+    val meals: List<MealSummary> = emptyList(),
+    val details: Map<String, Recipe> = emptyMap(),
+    val savedAt: Long = 0,
+    val fromReviewFixture: Boolean = false,
+)
 
 /** Replaceable persistence boundary. Favourite snapshots are independent of the response cache. */
 interface LocalStore {
