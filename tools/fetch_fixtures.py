@@ -5,6 +5,8 @@ import urllib.request, json, concurrent.futures
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'app/src/main/assets/fixtures'
 DEST.mkdir(parents=True, exist_ok=True)
+IMAGES = DEST / 'images'
+IMAGES.mkdir(parents=True, exist_ok=True)
 BASE = 'https://www.themealdb.com/api/json/v1/1/'
 
 def get(endpoint):
@@ -34,6 +36,14 @@ def main():
         meals = [m for group in pool.map(fetch, ids) for m in group]
     if meals:
         (DEST / 'indian-meals.json').write_text(json.dumps({'meals': meals}, indent=2), encoding='utf-8')
+        for meal in meals:
+            url = meal.get('strMealThumb')
+            target = IMAGES / (meal['idMeal'] + '.jpg')
+            if url:
+                try:
+                    target.write_bytes(urllib.request.urlopen(url.rstrip('/') + '/medium', timeout=25).read())
+                except Exception as error:
+                    print('Image', meal['idMeal'], str(error), flush=True)
         print('Captured', len(meals), 'public records')
     else:
         print('Provider returned no Indian lookup records. Existing fixtures preserved.')
