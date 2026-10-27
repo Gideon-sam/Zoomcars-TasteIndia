@@ -38,6 +38,14 @@ set APP_HOME=%DIRNAME%
 @rem Resolve any "." and ".." in APP_HOME to make it shorter.
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
+@rem bootstrap.py installs Gradle locally so builds do not download a second copy.
+@rem The local trust store handles antivirus HTTPS inspection on this workstation.
+if exist "%APP_HOME%\.tools\gradle-cacerts" set "GRADLE_OPTS=-Djavax.net.ssl.trustStore=%APP_HOME%\.tools\gradle-cacerts -Djavax.net.ssl.trustStorePassword=changeit %GRADLE_OPTS%"
+if exist "%APP_HOME%\.tools\gradle-8.9\bin\gradle.bat" (
+    call "%APP_HOME%\.tools\gradle-8.9\bin\gradle.bat" %*
+    goto end
+)
+
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 

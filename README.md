@@ -16,6 +16,8 @@ Requirements: Android Studio Narwhal 3 Feature Drop (2025.2.2) or newer, JDK 17,
 
 On Windows, `python tools/bootstrap.py` can install the pinned Gradle 8.9 and Android SDK 35 packages under this repository on `D:` and create `local.properties`. The optional `python tools/bootstrap_emulator.py` installs a headless Android 15 review emulator under the same `.tools` directory.
 
+`gradlew.bat` automatically reuses `.tools\gradle-8.9` after bootstrap, avoiding another Gradle distribution download. If the local tool directory is absent, the standard wrapper remains available with a two-minute network timeout.
+
 The wrappers default `GRADLE_USER_HOME` to `.gradle-user-home` inside this project. When the repository is on `D:`, dependencies and Gradle distributions stay on `D:` too. Set `GRADLE_USER_HOME` yourself if you prefer another disk. The local bootstrap also installs its Android SDK under `.tools`; both directories are ignored by Git.
 
 For Android Studio on a space-limited system drive, set **Settings → Build Tools → Gradle → Gradle user home** to `D:\Zoomcars\.gradle-user-home`. Keep the SDK path from `local.properties` (`D:\Zoomcars\.tools\android-sdk`).
