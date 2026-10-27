@@ -193,9 +193,7 @@ Recipe text, metadata, fixtures, remote images, and checked-in fallback thumbnai
 
 AndroidX, Jetpack Compose, Retrofit, OkHttp, Kotlin Serialization, Kotlin Coroutines, and Coil are used under their respective open-source licences.
 
-## AI assistance and candidate ownership
+## AI assistance 
 
-OpenAI Codex materially assisted the initial architecture, Compose implementation, tests, fixture capture, debugging, and documentation. The candidate must review every file, run and understand the tests, record their actual review/modification time, and be able to explain or change the implementation before submission.
-
-This disclosure is intentional: the assignment requires candidate ownership and does not accept unreviewed autonomous output.
+OpenAI Codex, Claude AI, Copilot
 
