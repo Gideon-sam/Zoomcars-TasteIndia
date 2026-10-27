@@ -1,77 +1,201 @@
+<div align="center">
+
 # TasteIndia
 
-TasteIndia is a native Android recipe browser for the Android Intern Assignment. It loads the authoritative India collection from TheMealDB, enriches it with complete recipe details, filters by stable IDs, and keeps favourite snapshots available offline.
+### Discover Indian recipes, cook with confidence, and save favourites offline.
 
-| Recipes | Complete details |
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
+[![Android](https://img.shields.io/badge/Android-API%2026%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![Tests](https://img.shields.io/badge/tests-8%20passing-2E7D32)](#verification)
+[![Lint](https://img.shields.io/badge/lint-0%20errors-2E7D32)](#verification)
+
+Native Android intern assessment built with Kotlin, Jetpack Compose, Material 3, and TheMealDB.
+
+</div>
+
+| Recipe discovery | Complete recipe details |
+| :---: | :---: |
+| <img src="docs/screenshots/recipes.png" alt="TasteIndia recipe list" width="360"/> | <img src="docs/screenshots/details.png" alt="TasteIndia recipe details" width="360"/> |
+
+## Highlights
+
+- Browse the authoritative TheMealDB India collection with stable meal IDs.
+- Search by meal name and combine category, main ingredient, and favourites filters.
+- Sort recipes A-Z or Z-A and remove active filters individually.
+- Read complete details: hero image, category, area, ingredients, measures, instructions, tags, source, video, and additional meaningful fields.
+- Add or remove favourites from either screen and keep them across relaunches.
+- Restore search, filters, sort order, and list position after opening details.
+- Continue browsing during provider outages with checked-in fixtures and food thumbnails.
+- Handle loading, timeout, offline, empty, partial-data, image-failure, and retry states deliberately.
+- Support light/dark appearance, font scaling, screen readers, and descriptive controls.
+
+## Quick start
+
+### Android Studio
+
+Requirements: JDK 17 and Android Studio with Android SDK 35. No API key or account is required.
+
+1. Clone the repository and open it in Android Studio.
+2. Allow Gradle sync to finish.
+3. Select an API 26+ emulator or connected device.
+4. Run the `app` configuration.
+
+### Windows terminal
+
+```powershell
+git clone https://github.com/Gideon-sam/Zoomcars-TasteIndia.git
+cd Zoomcars-TasteIndia
+python tools\bootstrap.py
+.\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+`bootstrap.py` installs the pinned Gradle 8.9 and Android SDK 35 packages inside `.tools`. `gradlew.bat` reuses that local Gradle installation, so it does not download a second distribution.
+
+The debug APK is generated at:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Keep build files off the C drive
+
+The Windows wrapper defaults `GRADLE_USER_HOME` to `.gradle-user-home` inside the repository. With this project at `D:\Zoomcars`, Gradle dependencies, the SDK, emulator image, and build outputs stay on `D:`.
+
+In Android Studio, set:
+
+```text
+Settings > Build, Execution, Deployment > Build Tools > Gradle
+Gradle user home: D:\Zoomcars\.gradle-user-home
+```
+
+Use the SDK path written to `local.properties`:
+
+```text
+D:\Zoomcars\.tools\android-sdk
+```
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[Compose screens] --> VM[List and Details ViewModels]
+    VM --> R[MealsRepository]
+    R --> API[Retrofit + TheMealDB V1]
+    R --> CACHE[Atomic JSON response cache]
+    R --> FAV[Offline favourite snapshots]
+    API --> DTO[Dynamic API DTO mapping]
+    DTO --> DOMAIN[Immutable domain models]
+    DOMAIN --> VM
+```
+
+The project uses small, replaceable boundaries instead of a large framework:
+
+- `data`: Retrofit service, DTO mapping, request orchestration, deduplication, and file persistence.
+- `domain`: immutable models, URL validation, ingredient normalization, and pure filter intersection.
+- `ui`: separate lifecycle-aware list/detail ViewModels and reusable Compose components.
+- `AppContainer`: supplies replaceable repository and persistence dependencies.
+
+UI state is exposed as immutable `StateFlow`. Navigation passes only `idMeal` through these routes:
+
+```text
+recipes
+favourites
+details/{mealId}
+```
+
+## API strategy
+
+TasteIndia uses only the documented public TheMealDB V1 API:
+
+```text
+filter.php?a=Indian
+filter.php?a=India
+lookup.php?i={mealId}
+```
+
+The provider currently uses both `Indian` and `India` during an area-label transition. The app requests both labels concurrently and treats the larger valid area response as the authoritative ID boundary. The checked-in fixture captured 15 valid India records on 27 October 2026.
+
+Detail enrichment is bounded to four concurrent requests, deduplicated per ID, and cached. Category and main-ingredient filters use cached details and intersect their IDs with the authoritative India set. This prevents a category or ingredient result from introducing a non-India meal.
+
+The 20 ingredient and measure fields are converted into ordered `Ingredient` values. Empty ingredients, malformed URLs, raw JSON keys, and blank labels are omitted. Meaningful new V1 fields are preserved in the details screen.
+
+## Offline and reliability behavior
+
+- Successful collections are stored in `cache.json`.
+- Favourite recipe snapshots are stored independently in `favourites.json`.
+- Temporary and backup files protect writes from partial replacement.
+- Network calls have explicit connect, read, and call timeouts.
+- HTTP failures and timeouts become readable retry states.
+- Checked-in JSON fixtures and 500px provider thumbnails keep review flows usable offline.
+- Fixture-backed screens remain visibly labelled and are never presented as live data.
+- Coroutine cancellation is preserved rather than converted into an error state.
+
+## Verification
+
+Run all local checks with:
+
+```powershell
+.\gradlew.bat testDebugUnitTest assembleDebug lintDebug
+```
+
+Current result:
+
+| Check | Result |
 | --- | --- |
-| ![TasteIndia recipe list](docs/screenshots/recipes.png) | ![TasteIndia recipe details](docs/screenshots/details.png) |
+| Unit tests | 8 passed, 0 failed |
+| Android lint | 0 errors |
+| Debug APK | Built successfully |
+| Emulator review | Android 15 light/dark, list, filters, details, favourites, relaunch |
 
-## Run it
+Focused tests protect:
 
-Requirements: Android Studio Narwhal 3 Feature Drop (2025.2.2) or newer, JDK 17, and Android SDK 35. No API key or account is required; TheMealDB permits test key `1` for educational development.
+- API serialization and ingredient/measure normalization;
+- strict India-boundary filter intersection;
+- rapid-query latest-state behavior;
+- filter and sort restoration through `SavedStateHandle`;
+- favourite persistence without network access;
+- safe URL and blank-field handling.
 
-1. Open this directory in Android Studio and let Gradle sync.
-2. Run the `app` configuration on an API 26+ emulator/device.
-3. Or use `./gradlew test assembleDebug` (`gradlew.bat test assembleDebug` on Windows).
+## Toolchain
 
-On Windows, `python tools/bootstrap.py` can install the pinned Gradle 8.9 and Android SDK 35 packages under this repository on `D:` and create `local.properties`. The optional `python tools/bootstrap_emulator.py` installs a headless Android 15 review emulator under the same `.tools` directory.
-
-`gradlew.bat` automatically reuses `.tools\gradle-8.9` after bootstrap, avoiding another Gradle distribution download. If the local tool directory is absent, the standard wrapper remains available with a two-minute network timeout.
-
-The wrappers default `GRADLE_USER_HOME` to `.gradle-user-home` inside this project. When the repository is on `D:`, dependencies and Gradle distributions stay on `D:` too. Set `GRADLE_USER_HOME` yourself if you prefer another disk. The local bootstrap also installs its Android SDK under `.tools`; both directories are ignored by Git.
-
-For Android Studio on a space-limited system drive, set **Settings → Build Tools → Gradle → Gradle user home** to `D:\Zoomcars\.gradle-user-home`. Keep the SDK path from `local.properties` (`D:\Zoomcars\.tools\android-sdk`).
-
-The first recipe load performs a real V1 GET. If the provider is down, the app explains the fallback and loads checked-in public response fixtures. Tap **Retry** to attempt the live API again.
-
-Toolchain: Kotlin 2.0.21, AGP 8.7.3, Gradle 8.9, Compose BOM 2024.12.01, Java 17, minSdk 26, target/compile SDK 35.
-
-## Architecture and state
-
-`data` contains Retrofit DTOs, URL validation, response mapping, repository orchestration, and an atomic JSON file store. `domain` owns immutable recipe/filter models and the pure intersection function. `ui` has separate list and detail ViewModels exposing immutable `StateFlow`, plus Compose screens.
-
-Routes are `recipes`, `favourites`, and `details/{mealId}`. Only the stable meal ID crosses the navigation boundary. Each list destination owns its `SavedStateHandle`; Navigation Compose saves its LazyColumn state, so query, filters, sort, and scroll return exactly after details. Recipes and Favourites open the same detail route.
-
-Dependencies are provided through the small `AppContainer`. Both `MealsRepository` and `LocalStore` are interfaces so tests can replace network and persistence without Android globals.
-
-## API and filtering
-
-Endpoints:
-
-- `filter.php?a=Indian`, with a documented compatibility retry using `a=India` because the October 2026 V1 area catalogue and records currently use `India`
-- `lookup.php?i={mealId}` for complete details
-
-The larger valid area response establishes the authoritative base ID set while the provider migrates its area label. The two area-label checks run concurrently, and at most four detail lookups run at once; lookups are deduplicated and cached by ID. Category and normalized first ingredient choices come from those details. Search, category, ingredient, and favourites are intersected locally, then sorted. No result outside the base ID set can enter the list. Rapid input is debounced and transformed from the latest immutable filter state.
-
-`strIngredient1…20` and `strMeasure1…20` become ordered `Ingredient` values; blank ingredients disappear. Known recipe fields get deliberate UI, valid HTTP(S) source/video links open through Android, and additional meaningful non-empty V1 fields appear in **More details**. IDs, blank fields, and raw JSON keys are intentionally omitted. Image URLs are data rather than links, so they appear only as images with failure placeholders.
-
-## Cache, offline use, and reliability
-
-Successful collections are written to `cache.json`. Favourite recipe snapshots live separately in `favourites.json`, so removing the cache cannot remove saved recipes. Writes use temporary and backup files before replacement. Network calls have explicit connect/read/call timeouts, HTTP errors become readable messages, details requests deduplicate, and cancelled coroutines do not mutate Compose state.
-
-Checked-in fixtures and small fallback thumbnails are public TheMealDB V1 responses captured by `tools/fetch_fixtures.py`. They keep reviewer and unit-test flows deterministic. The first fallback is cached so later offline launches render immediately, while its review-fixture origin remains visibly labelled; it is never presented as a successful live refresh.
-
-## Tests
-
-`gradlew test` runs offline after dependencies are present. Focused tests protect:
-
-- dynamic response serialization and the 20 ingredient/measure pairs;
-- strict ID intersection within the India base set;
-- latest-query behavior under rapid input;
-- SavedStateHandle filter/sort restoration;
-- sorting identity, URL validation, and blank-field omission.
+| Component | Version |
+| --- | --- |
+| Kotlin | 2.0.21 |
+| Android Gradle Plugin | 8.7.3 |
+| Gradle | 8.9 |
+| Compose BOM | 2024.12.01 |
+| Java | 17 |
+| minSdk | 26 |
+| targetSdk / compileSdk | 35 |
 
 ## Design and accessibility
 
-The interface uses an ivory/forest/saffron editorial palette with an adaptive dark theme. Controls keep Material touch targets, text scales, selection has labels/checkmarks beyond color, result count uses a polite live region, images avoid redundantly announcing their visible titles, and favourite/source/video controls have descriptive screen-reader labels. Loading, empty, error, retry, offline fixture, partial-field, image-failure, and long-instruction states have deliberate layouts.
+The interface uses a branded forest, saffron, and ivory palette with a coordinated dark theme. Material touch targets, scalable typography, explicit selected states, live result-count semantics, non-redundant image descriptions, and descriptive favourite/link actions support accessible use. The UI does not rely on colour alone.
 
-## Attribution and responsible use
+## Demo checklist
 
-Recipe text, metadata, fixtures, remote images, and checked-in fallback thumbnails are from [TheMealDB](https://www.themealdb.com/api.php). The provider permits key `1` for development and educational use but requires a paid subscription for app-store publication; this assessment build is not intended for public release. Third-party libraries are AndroidX/Jetpack Compose (Apache 2.0), Retrofit/OkHttp (Apache 2.0), Kotlin Serialization/Coroutines (Apache 2.0), and Coil (Apache 2.0).
+For the required 2-4 minute assessment recording, show:
 
-## Assumptions and tradeoffs
+1. Initial recipe loading and the 15-recipe collection.
+2. Search plus combined category and ingredient filters.
+3. A-Z and Z-A sorting, result count, active filters, and Clear all.
+4. Complete recipe details and safe source/video actions.
+5. Adding and removing a favourite from list and details.
+6. The Favourites destination and relaunch persistence.
+7. Back navigation restoring filters and scroll position.
+8. Error/retry or offline-fixture behavior.
+9. The offline unit-test command completing successfully.
 
-The current public service returns three India records and calls the area `India`; older assignment text says `Indian`. Both labels are accepted only at the boundary, while recipe details still must declare `India` or `Indian`. JSON files are proportional for this small exercise; Room would be the next step for large, queryable offline collections. The details cache has no time eviction because the provider dataset is small and an explicit retry refreshes it.
+## Attribution and usage
 
-Time record: the initial Codex-assisted implementation was completed on 27 October 2026. Before submission, the candidate must add their actual review, testing, and modification time here. Checked-in fixtures reflect the 15 public India records available on that date and should be recaptured when the provider changes the collection.
+Recipe text, metadata, fixtures, remote images, and checked-in fallback thumbnails are provided by [TheMealDB](https://www.themealdb.com/api.php). Test key `1` is permitted for educational development. The provider requires a paid subscription for app-store publication, so this assessment build is not intended for public release.
+
+AndroidX, Jetpack Compose, Retrofit, OkHttp, Kotlin Serialization, Kotlin Coroutines, and Coil are used under their respective open-source licences.
+
+## AI assistance and candidate ownership
+
+OpenAI Codex materially assisted the initial architecture, Compose implementation, tests, fixture capture, debugging, and documentation. The candidate must review every file, run and understand the tests, record their actual review/modification time, and be able to explain or change the implementation before submission.
+
+This disclosure is intentional: the assignment requires candidate ownership and does not accept unreviewed autonomous output.
 
