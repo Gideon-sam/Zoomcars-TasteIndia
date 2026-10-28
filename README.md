@@ -20,8 +20,9 @@ Native Android intern assessment built with Kotlin, Jetpack Compose, Material 3,
 
 ## Video demo
 
-[Watch the TasteIndia app walkthrough](Video%20TasteIndia/TasteIndia-Zoomcars-demo.mp4)
-Drive Link : https://drive.google.com/file/d/1BUAi3GHxPGR9uEdK-GLh84v3T0Yke54N/view?usp=sharing
+-[Watch the TasteIndia app walkthrough](Video%20TasteIndia/TasteIndia-Zoomcars-demo.mp4)
+
+-Drive Link : https://drive.google.com/file/d/1BUAi3GHxPGR9uEdK-GLh84v3T0Yke54N/view?usp=sharing
 
 ## Highlights
 
