@@ -18,6 +18,10 @@ Native Android intern assessment built with Kotlin, Jetpack Compose, Material 3,
 | :---: | :---: |
 | <img src="docs/screenshots/recipes.png" alt="TasteIndia recipe list" width="360"/> | <img src="docs/screenshots/details.png" alt="TasteIndia recipe details" width="360"/> |
 
+## Video demo
+
+[Watch the TasteIndia app walkthrough](docs/demo/TasteIndia-Zoomcars-demo.mp4)
+
 ## Highlights
 
 - Browse the authoritative TheMealDB India collection with stable meal IDs.
